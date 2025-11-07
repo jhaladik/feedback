@@ -34,9 +34,12 @@ export async function handleInit(
       phase: 'pre',
       createdAt: Date.now(),
       settings: defaultSettings,
+      // Phase-specific arrays
+      preCourseResponses: [],
       feedback: [],
       reactions: [],
       teacherActions: [],
+      postCourseResponses: [],
     };
 
     await saveState(sessionState);
@@ -55,6 +58,7 @@ export async function handleInit(
 export async function handleChangePhase(
   request: Request,
   sessionState: FeedbackSessionState,
+  env: Env,
   saveState: (state: FeedbackSessionState) => Promise<void>,
   broadcast: (message: any) => void
 ): Promise<Response> {
@@ -75,6 +79,9 @@ export async function handleChangePhase(
 
     if (phase === 'post' && !sessionState.endedAt) {
       sessionState.endedAt = Date.now();
+
+      // Generate post-course questions when entering post phase
+      generatePostCourseQuestions(sessionState, env, saveState, broadcast).catch(console.error);
     }
 
     await saveState(sessionState);
@@ -243,6 +250,65 @@ Return only the questions, one per line, numbered 1-5.`;
     await saveState(sessionState);
   } catch (error) {
     console.error('Failed to generate pre-course questions:', error);
+  }
+}
+
+async function generatePostCourseQuestions(
+  sessionState: FeedbackSessionState,
+  env: Env,
+  saveState: (state: FeedbackSessionState) => Promise<void>,
+  broadcast: (message: any) => void
+): Promise<void> {
+  try {
+    const aiProvider = createAIProvider(sessionState.settings.aiProvider, env);
+
+    // Build context from the session
+    const preCourseContext = sessionState.preCourseQuestions
+      ? `\n\nPre-course questions asked:\n${sessionState.preCourseQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+      : '';
+
+    const topicsContext = sessionState.currentTopic
+      ? `\n\nTopics covered: ${sessionState.currentTopic}`
+      : '';
+
+    const feedbackSummary = sessionState.feedback.length > 0
+      ? `\n\nDuring the course, ${sessionState.feedback.length} feedback items were received.`
+      : '';
+
+    const prompt = `Generate 5 insightful post-course reflection questions for a course titled "${sessionState.courseTitle}".
+${sessionState.courseDescription ? `Course description: ${sessionState.courseDescription}` : ''}${preCourseContext}${topicsContext}${feedbackSummary}
+
+The questions should help assess:
+1. Learning outcomes and skill improvement
+2. Overall satisfaction and expectations met
+3. What worked well and what could be improved
+4. Specific topics that need clarification
+5. Application of learned concepts
+
+Return only the questions, one per line, numbered 1-5.`;
+
+    const questionsText = await aiProvider.generateText(
+      prompt,
+      'You are an expert course evaluator creating post-course reflection questions.'
+    );
+
+    // Parse questions
+    const questions = questionsText
+      .split('\n')
+      .filter(line => line.trim())
+      .map(line => line.replace(/^\d+\.\s*/, '').trim());
+
+    sessionState.postCourseQuestions = questions;
+    await saveState(sessionState);
+
+    // Broadcast that post-course questions are ready
+    broadcast({
+      type: 'session_updated',
+      payload: { postCourseQuestions: questions },
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    console.error('Failed to generate post-course questions:', error);
   }
 }
 

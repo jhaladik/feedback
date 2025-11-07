@@ -12,6 +12,7 @@ import * as FeedbackHandlers from './handlers/feedback-handlers';
 import * as PhaseHandlers from './handlers/phase-handlers';
 import * as AIHandlers from './handlers/ai-handlers';
 import * as ReactionHandlers from './handlers/reaction-handlers';
+import * as CourseResponseHandlers from './handlers/course-response-handlers';
 
 export class FeedbackSession implements DurableObject {
   private state: DurableObjectState;
@@ -83,6 +84,7 @@ export class FeedbackSession implements DurableObject {
           return PhaseHandlers.handleChangePhase(
             request,
             this.sessionState!,
+            this.env,
             this.saveState.bind(this),
             this.broadcast.bind(this)
           );
@@ -192,6 +194,37 @@ export class FeedbackSession implements DurableObject {
             this.saveState.bind(this),
             this.broadcast.bind(this)
           );
+        }
+        break;
+
+      // Pre-course and Post-course Responses
+      case '/api/pre-course-response':
+        if (request.method === 'POST') {
+          return CourseResponseHandlers.handleSubmitPreCourseResponse(
+            request,
+            this.sessionState!,
+            this.env,
+            this.saveState.bind(this),
+            this.broadcast.bind(this)
+          );
+        }
+        break;
+
+      case '/api/post-course-response':
+        if (request.method === 'POST') {
+          return CourseResponseHandlers.handleSubmitPostCourseResponse(
+            request,
+            this.sessionState!,
+            this.env,
+            this.saveState.bind(this),
+            this.broadcast.bind(this)
+          );
+        }
+        break;
+
+      case '/api/phase-responses':
+        if (request.method === 'GET') {
+          return CourseResponseHandlers.handleGetPhaseResponses(request, this.sessionState!);
         }
         break;
     }
