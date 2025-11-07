@@ -25,7 +25,7 @@ export interface AIScoring {
   provider: AIProvider;
 }
 
-// Feedback Item
+// Feedback Item (for LIVE phase only)
 export interface Feedback {
   id: string;
   sessionId: string;
@@ -47,6 +47,52 @@ export interface Feedback {
   };
 }
 
+// Pre-Course Response (structured answers to pre-course questions)
+export interface PreCourseResponse {
+  id: string;
+  sessionId: string;
+  timestamp: number;
+  author?: {
+    name?: string;
+    nickname?: string;
+    id?: string;
+  };
+  responses: Array<{
+    questionIndex: number;
+    question: string;
+    answer: string;
+  }>;
+  aiAnalysis?: {
+    skillLevel: 'beginner' | 'intermediate' | 'advanced';
+    expectations: string[];
+    concerns: string[];
+    confidence: number; // 0-10
+  };
+}
+
+// Post-Course Response (structured answers to post-course questions)
+export interface PostCourseResponse {
+  id: string;
+  sessionId: string;
+  timestamp: number;
+  author?: {
+    name?: string;
+    nickname?: string;
+    id?: string;
+  };
+  responses: Array<{
+    questionIndex: number;
+    question: string;
+    answer: string;
+  }>;
+  aiAnalysis?: {
+    satisfactionScore: number; // 0-10
+    skillLevelChange?: 'improved' | 'same' | 'unsure';
+    topPositives: string[];
+    topImprovements: string[];
+  };
+}
+
 // Feedback Session (Durable Object State)
 export interface FeedbackSessionState {
   id: string;
@@ -58,10 +104,19 @@ export interface FeedbackSessionState {
   startedAt?: number;       // When live phase started
   endedAt?: number;         // When post phase completed
   settings: SessionSettings;
-  feedback: Feedback[];
-  reactions: Reaction[];    // Quick emoji reactions
-  teacherActions: TeacherAction[]; // Teacher's one-click actions
-  preCourseQuestions?: string[]; // AI-generated questions
+
+  // Phase-specific data (STRICT SEPARATION)
+  preCourseQuestions?: string[];              // AI-generated pre-course questions
+  preCourseResponses: PreCourseResponse[];    // Structured pre-course answers
+
+  feedback: Feedback[];                       // Live phase feedback only
+  reactions: Reaction[];                      // Quick emoji reactions (live phase)
+  teacherActions: TeacherAction[];            // Teacher's one-click actions (live phase)
+
+  postCourseQuestions?: string[];             // AI-generated post-course questions
+  postCourseResponses: PostCourseResponse[];  // Structured post-course answers
+
+  // Shared
   summary?: SessionSummary;
   currentTopic?: string;    // What topic is being discussed now (for context)
 }
@@ -318,6 +373,49 @@ export interface ReactionStatsResponse {
   breakNeeded: number;
   averageConfidence: number;
   totalReactions: number;
+}
+
+// Phase-specific Response Types
+export interface SubmitPreCourseResponseRequest {
+  responses: Array<{
+    questionIndex: number;
+    answer: string;
+  }>;
+  author?: {
+    name?: string;
+    nickname?: string;
+  };
+}
+
+export interface SubmitPreCourseResponseResponse {
+  success: boolean;
+  response?: PreCourseResponse;
+}
+
+export interface SubmitPostCourseResponseRequest {
+  responses: Array<{
+    questionIndex: number;
+    answer: string;
+  }>;
+  author?: {
+    name?: string;
+    nickname?: string;
+  };
+}
+
+export interface SubmitPostCourseResponseResponse {
+  success: boolean;
+  response?: PostCourseResponse;
+}
+
+export interface GetPhaseResponsesRequest {
+  phase: 'pre' | 'post';
+}
+
+export interface GetPhaseResponsesResponse {
+  success: boolean;
+  responses: PreCourseResponse[] | PostCourseResponse[];
+  questions?: string[];
 }
 
 // Environment bindings
