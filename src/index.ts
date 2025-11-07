@@ -43,9 +43,14 @@ export default {
         }
 
         // Route to FeedbackSession Durable Object
+        // Rewrite the URL to remove the /session/{sessionId} prefix
+        const newPath = url.pathname.replace(`/session/${sessionId}`, '');
+        const newUrl = new URL(newPath + url.search, request.url);
+        const newRequest = new Request(newUrl, request);
+
         const id = env.FEEDBACK_SESSION.idFromName(sessionId);
         const stub = env.FEEDBACK_SESSION.get(id);
-        return await stub.fetch(request);
+        return await stub.fetch(newRequest);
       }
 
       // Teacher hub
