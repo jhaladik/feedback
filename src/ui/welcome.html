@@ -66,12 +66,12 @@
         const data = await response.json();
         if (data.success) {
           const result = document.getElementById('result');
-          result.innerHTML = \`
+          result.innerHTML = `
             <h3>Session Created! 🎉</h3>
-            <p><strong>Teacher Dashboard:</strong><br><a href="\${data.teacherUrl}" target="_blank">\${data.teacherUrl}</a></p>
-            <p><strong>Attendee Link:</strong><br><a href="\${data.attendeeUrl}" target="_blank">\${data.attendeeUrl}</a></p>
-            <p><strong>Access Code:</strong> \${data.accessCode}</p>
-          \`;
+            <p><strong>Teacher Dashboard:</strong><br><a href="${data.teacherUrl}" target="_blank">${data.teacherUrl}</a></p>
+            <p><strong>Attendee Link:</strong><br><a href="${data.attendeeUrl}" target="_blank">${data.attendeeUrl}</a></p>
+            <p><strong>Access Code:</strong> ${data.accessCode}</p>
+          `;
           result.style.display = 'block';
         } else {
           alert('Failed to create session: ' + data.error);

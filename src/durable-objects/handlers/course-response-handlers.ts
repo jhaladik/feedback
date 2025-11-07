@@ -29,7 +29,7 @@ export async function handleSubmitPreCourseResponse(
       author,
       responses: responses.map(r => ({
         questionIndex: r.questionIndex,
-        question: sessionState.preCourseQuestions?.[r.questionIndex] || '',
+        question: sessionState.preCourseQuestions?.[r.questionIndex]?.question || '',
         answer: r.answer,
       })),
     };
@@ -96,7 +96,7 @@ export async function handleSubmitPostCourseResponse(
       author,
       responses: responses.map(r => ({
         questionIndex: r.questionIndex,
-        question: sessionState.postCourseQuestions?.[r.questionIndex] || '',
+        question: sessionState.postCourseQuestions?.[r.questionIndex]?.question || '',
         answer: r.answer,
       })),
     };

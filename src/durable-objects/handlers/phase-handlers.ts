@@ -227,30 +227,102 @@ async function generatePreCourseQuestions(
     const prompt = `Generate 5 insightful pre-course questions for a course titled "${sessionState.courseTitle}".
 ${sessionState.courseDescription ? `Course description: ${sessionState.courseDescription}` : ''}
 
-The questions should help assess:
-1. Prior knowledge and experience level
-2. Specific learning goals and expectations
-3. Any concerns or prerequisites questions
-4. Preferred learning style or pace
+Create a mix of question types:
+- 2 multiple choice questions about prior experience/skill level
+- 2 open-text questions about learning goals and concerns
+- 1 rating question about confidence level
 
-Return only the questions, one per line, numbered 1-5.`;
+Format as JSON array:
+[
+  {
+    "question": "What is your experience level with [topic]?",
+    "type": "choice",
+    "options": ["Beginner", "Intermediate", "Advanced", "Expert"]
+  },
+  {
+    "question": "What are your main learning goals for this course?",
+    "type": "text"
+  }
+]
 
-    const questionsText = await aiProvider.generateText(
+Return ONLY valid JSON, no other text.`;
+
+    const responseText = await aiProvider.generateText(
       prompt,
-      'You are an expert course designer creating pre-course assessment questions.'
+      'You are an expert course designer. ALWAYS respond with valid JSON only.'
     );
 
-    // Parse questions
-    const questions = questionsText
-      .split('\n')
-      .filter(line => line.trim())
-      .map(line => line.replace(/^\d+\.\s*/, '').trim());
+    // Parse JSON response
+    try {
+      const questions = JSON.parse(responseText);
 
-    sessionState.preCourseQuestions = questions;
+      if (Array.isArray(questions) && questions.length > 0) {
+        sessionState.preCourseQuestions = questions.map(q => ({
+          question: q.question,
+          type: q.type || 'text',
+          options: q.options || undefined,
+          required: false
+        }));
+      } else {
+        // Fallback to simple questions if JSON parsing fails
+        sessionState.preCourseQuestions = createDefaultPreCourseQuestions();
+      }
+    } catch (parseError) {
+      console.error('Failed to parse AI response as JSON, using defaults:', parseError);
+      sessionState.preCourseQuestions = createDefaultPreCourseQuestions();
+    }
+
     await saveState(sessionState);
   } catch (error) {
     console.error('Failed to generate pre-course questions:', error);
+    sessionState.preCourseQuestions = createDefaultPreCourseQuestions();
+    await saveState(sessionState);
   }
+}
+
+// Research-based pre-course questions optimized for teacher effectiveness
+// Based on:
+// - Backwards Design (Wiggins & McTighe)
+// - Constructivist Learning Theory
+// - Universal Design for Learning (UDL)
+// - Formative Assessment Research (Black & Wiliam)
+function createDefaultPreCourseQuestions() {
+  return [
+    {
+      question: "What is your current experience level with this topic?",
+      type: 'choice' as const,
+      options: ["No prior knowledge", "Heard of it, not used it", "Some hands-on experience", "Regular user/practitioner", "Expert/Teaching others"],
+      required: true,
+      purpose: "READINESS: Helps teacher gauge prerequisite knowledge and adjust starting complexity"
+    },
+    {
+      question: "What do you hope to achieve by the end of this session?",
+      type: 'choice' as const,
+      options: ["Understand basic concepts", "Gain practical skills I can use immediately", "Solve a specific problem", "Get certified/credentials", "Explore if this is right for me"],
+      required: true,
+      purpose: "MOTIVATION: Reveals learner goals to help teacher align content with expectations"
+    },
+    {
+      question: "How do you learn best?",
+      type: 'choice' as const,
+      options: ["Hands-on practice and examples", "Visual aids and diagrams", "Step-by-step explanations", "Discussion and Q&A", "Mix of everything"],
+      required: true,
+      purpose: "DELIVERY: Informs teaching methods and material presentation style"
+    },
+    {
+      question: "What is your biggest concern or challenge about this topic?",
+      type: 'text' as const,
+      required: false,
+      purpose: "BARRIERS: Identifies obstacles and misconceptions to address proactively"
+    },
+    {
+      question: "How much time can you dedicate to practice/homework after this session?",
+      type: 'choice' as const,
+      options: ["None - just this session", "Less than 1 hour", "1-3 hours", "3-5 hours", "5+ hours"],
+      required: false,
+      purpose: "PACING: Helps teacher set realistic expectations and recommend appropriate follow-up resources"
+    }
+  ];
 }
 
 async function generatePostCourseQuestions(

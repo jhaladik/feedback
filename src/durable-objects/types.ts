@@ -47,6 +47,17 @@ export interface Feedback {
   };
 }
 
+// Question Types
+export type QuestionType = 'text' | 'choice' | 'rating';
+
+export interface Question {
+  question: string;
+  type: QuestionType;
+  options?: string[]; // For choice type
+  required?: boolean;
+  purpose?: string; // Pedagogical purpose for teachers to understand why this question matters
+}
+
 // Pre-Course Response (structured answers to pre-course questions)
 export interface PreCourseResponse {
   id: string;
@@ -106,14 +117,14 @@ export interface FeedbackSessionState {
   settings: SessionSettings;
 
   // Phase-specific data (STRICT SEPARATION)
-  preCourseQuestions?: string[];              // AI-generated pre-course questions
+  preCourseQuestions?: Question[];            // AI-generated pre-course questions
   preCourseResponses: PreCourseResponse[];    // Structured pre-course answers
 
   feedback: Feedback[];                       // Live phase feedback only
   reactions: Reaction[];                      // Quick emoji reactions (live phase)
   teacherActions: TeacherAction[];            // Teacher's one-click actions (live phase)
 
-  postCourseQuestions?: string[];             // AI-generated post-course questions
+  postCourseQuestions?: Question[];           // AI-generated post-course questions
   postCourseResponses: PostCourseResponse[];  // Structured post-course answers
 
   // Shared

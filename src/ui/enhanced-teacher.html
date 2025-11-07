@@ -89,6 +89,20 @@
   <div class="header">
     <h1 id="courseTitle">🎓 Teacher Dashboard</h1>
     <p id="sessionInfo">Loading session...</p>
+    <div style="display: flex; gap: 20px; margin-top: 10px; flex-wrap: wrap; font-size: 14px;">
+      <div style="background: #e3f2fd; padding: 10px 15px; border-radius: 8px; font-weight: 600;">
+        📊 Total Feedback: <span id="totalFeedbackCount">0</span>
+      </div>
+      <div style="background: #f3e5f5; padding: 10px 15px; border-radius: 8px; font-weight: 600;">
+        👥 Unique Attendees: <span id="uniqueAttendeesCount">0</span>
+      </div>
+      <div style="background: #e8f5e9; padding: 10px 15px; border-radius: 8px; font-weight: 600;">
+        📝 Pre-Course Responses: <span id="preResponsesCount">0</span>
+      </div>
+      <div style="background: #fff3e0; padding: 10px 15px; border-radius: 8px; font-weight: 600;">
+        🏁 Post-Course Responses: <span id="postResponsesCount">0</span>
+      </div>
+    </div>
   </div>
 
   <div class="container">
@@ -97,8 +111,72 @@
       <button class="btn btn-primary" onclick="changePhase('live')">🎬 Start Live Session</button>
       <button class="btn btn-primary" onclick="changePhase('post')">🏁 End Session</button>
       <button class="btn btn-secondary" onclick="generateSummary()">📊 Generate AI Summary</button>
+      <button class="btn btn-secondary" onclick="viewResponses()">📋 View Responses</button>
       <button class="btn btn-secondary" onclick="refreshInsights()">🔄 Refresh Insights</button>
       <button class="btn btn-warning" onclick="copyAttendeeLink()">📎 Copy Attendee Link</button>
+    </div>
+
+    <!-- Live Reactions Dashboard -->
+    <div id="reactionsLivePanel" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 16px; margin-bottom: 25px; color: white; display: none;">
+      <h3 style="margin-bottom: 20px; display: flex; align-items: center; gap: 8px; color: white;">
+        ⚡ Live Reactions <span style="font-size: 13px; font-weight: normal; opacity: 0.9;">(Last 5 minutes)</span>
+      </h3>
+      <div style="display: grid; gap: 15px;">
+        <!-- Got It -->
+        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 18px; font-weight: 600;">✅ Got it!</span>
+            <span style="font-size: 24px; font-weight: bold;" id="reaction-count-got_it">0</span>
+          </div>
+          <div style="background: rgba(255,255,255,0.3); height: 8px; border-radius: 4px; overflow: hidden;">
+            <div id="reaction-bar-got_it" style="background: #4CAF50; height: 100%; width: 0%; transition: width 0.3s;"></div>
+          </div>
+        </div>
+
+        <!-- Confused -->
+        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 18px; font-weight: 600;">😕 Confused</span>
+            <span style="font-size: 24px; font-weight: bold;" id="reaction-count-confused">0</span>
+          </div>
+          <div style="background: rgba(255,255,255,0.3); height: 8px; border-radius: 4px; overflow: hidden;">
+            <div id="reaction-bar-confused" style="background: #FF9800; height: 100%; width: 0%; transition: width 0.3s;"></div>
+          </div>
+        </div>
+
+        <!-- Too Fast -->
+        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 18px; font-weight: 600;">🏃 Too Fast</span>
+            <span style="font-size: 24px; font-weight: bold;" id="reaction-count-too_fast">0</span>
+          </div>
+          <div style="background: rgba(255,255,255,0.3); height: 8px; border-radius: 4px; overflow: hidden;">
+            <div id="reaction-bar-too_fast" style="background: #f44336; height: 100%; width: 0%; transition: width 0.3s;"></div>
+          </div>
+        </div>
+
+        <!-- Too Slow -->
+        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 18px; font-weight: 600;">🐌 Too Slow</span>
+            <span style="font-size: 24px; font-weight: bold;" id="reaction-count-too_slow">0</span>
+          </div>
+          <div style="background: rgba(255,255,255,0.3); height: 8px; border-radius: 4px; overflow: hidden;">
+            <div id="reaction-bar-too_slow" style="background: #2196F3; height: 100%; width: 0%; transition: width 0.3s;"></div>
+          </div>
+        </div>
+
+        <!-- Break Needed -->
+        <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 18px; font-weight: 600;">☕ Break Needed</span>
+            <span style="font-size: 24px; font-weight: bold;" id="reaction-count-break_needed">0</span>
+          </div>
+          <div style="background: rgba(255,255,255,0.3); height: 8px; border-radius: 4px; overflow: hidden;">
+            <div id="reaction-bar-break_needed" style="background: #9C27B0; height: 100%; width: 0%; transition: width 0.3s;"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- AI Insights Panel -->
@@ -155,6 +233,19 @@
     </div>
   </div>
 
+  <!-- Course Responses Modal -->
+  <div id="responsesViewModal" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+      <span class="modal-close" onclick="closeResponsesModal()">&times;</span>
+      <h2 style="margin-bottom: 15px;">📋 Course Responses</h2>
+      <div style="margin-bottom: 15px;">
+        <button class="btn btn-secondary" style="margin-right: 10px;" onclick="showPreResponses()">📝 Pre-Course</button>
+        <button class="btn btn-secondary" onclick="showPostResponses()">🏁 Post-Course</button>
+      </div>
+      <div id="responsesContent"></div>
+    </div>
+  </div>
+
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
@@ -172,24 +263,104 @@
       loadFeedback();
       connectWebSocket();
 
-      // Auto-refresh insights every 60 seconds
-      insightsInterval = setInterval(refreshInsights, 60000);
-      setTimeout(refreshInsights, 5000); // Initial load after 5s
+      // Auto-refresh insights and reactions
+      insightsInterval = setInterval(() => {
+        refreshInsights();
+        loadReactionStats();
+      }, 10000); // Every 10 seconds
+
+      setTimeout(() => {
+        refreshInsights();
+        loadReactionStats();
+      }, 2000); // Initial load after 2s
     }
 
     async function loadSession() {
-      const response = await fetch(\`/session/\${sessionId}/api/session\`);
+      const response = await fetch(`/session/${sessionId}/api/session`);
       const data = await response.json();
       if (data.success) {
         sessionData = data.session;
         document.getElementById('courseTitle').textContent = '🎓 ' + data.session.courseTitle;
-        document.getElementById('sessionInfo').textContent = \`Phase: \${data.session.phase.toUpperCase()} | Session ID: \${sessionId}\`;
+        document.getElementById('sessionInfo').textContent = `Phase: ${data.session.phase.toUpperCase()} | Session ID: ${sessionId}`;
+
+        // Update counters
+        updateSessionStats(data.session);
       }
+    }
+
+    function updateSessionStats(session) {
+      // Total feedback
+      document.getElementById('totalFeedbackCount').textContent = session.feedback?.length || 0;
+
+      // Unique attendees - count unique user IDs from all sources
+      const uniqueUsers = new Set();
+
+      // From feedback
+      (session.feedback || []).forEach(f => {
+        if (f.author?.id) uniqueUsers.add(f.author.id);
+      });
+
+      // From reactions
+      (session.reactions || []).forEach(r => {
+        if (r.author?.id) uniqueUsers.add(r.author.id);
+      });
+
+      // From pre-course responses
+      (session.preCourseResponses || []).forEach(r => {
+        if (r.author?.id) uniqueUsers.add(r.author.id);
+      });
+
+      // From post-course responses
+      (session.postCourseResponses || []).forEach(r => {
+        if (r.author?.id) uniqueUsers.add(r.author.id);
+      });
+
+      document.getElementById('uniqueAttendeesCount').textContent = uniqueUsers.size;
+      document.getElementById('preResponsesCount').textContent = session.preCourseResponses?.length || 0;
+      document.getElementById('postResponsesCount').textContent = session.postCourseResponses?.length || 0;
+
+      // Show/hide reactions panel based on phase
+      if (session.phase === 'live') {
+        document.getElementById('reactionsLivePanel').style.display = 'block';
+      } else {
+        document.getElementById('reactionsLivePanel').style.display = 'none';
+      }
+    }
+
+    async function loadReactionStats() {
+      try {
+        const response = await fetch(`/session/${sessionId}/api/reactions?recentMinutes=5`);
+        const data = await response.json();
+
+        if (data.success) {
+          updateReactionDisplay(data.stats);
+        }
+      } catch (error) {
+        console.error('Failed to load reactions:', error);
+      }
+    }
+
+    function updateReactionDisplay(stats) {
+      const total = stats.totalReactions || 1; // Avoid division by zero
+
+      // Update counts and bars
+      const reactionTypes = ['got_it', 'confused', 'too_fast', 'too_slow', 'break_needed'];
+
+      reactionTypes.forEach(type => {
+        const count = stats[type] || 0;
+        const percentage = (count / total) * 100;
+
+        const countEl = document.getElementById(`reaction-count-${type}`);
+        const barEl = document.getElementById(`reaction-bar-${type}`);
+
+        if (countEl) countEl.textContent = count;
+        if (barEl) barEl.style.width = percentage + '%';
+      });
     }
 
     function connectWebSocket() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(\`\${protocol}//\${window.location.host}/session/\${sessionId}\`);
+      ws = new WebSocket(`${protocol}//${window.location.host}/session/${sessionId}`);
 
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
@@ -202,12 +373,15 @@
           displayInsights(message.payload);
         } else if (message.type === 'pattern_detected') {
           displayPatterns(message.payload);
+        } else if (message.type === 'reaction_added') {
+          // Reload reaction stats when new reaction comes in
+          loadReactionStats();
         }
       };
     }
 
     async function loadFeedback() {
-      const response = await fetch(\`/session/\${sessionId}/api/feedback\`);
+      const response = await fetch(`/session/${sessionId}/api/feedback`);
       const data = await response.json();
       if (data.success) {
         document.getElementById('publicFeedback').innerHTML = '';
@@ -222,30 +396,30 @@
       const div = document.createElement('div');
       const urgency = feedback.aiScoring?.urgency || 0;
       div.className = 'feedback-item ' + (urgency > 7 ? 'urgent' : 'normal') + (feedback.acknowledged ? ' acknowledged' : '');
-      div.innerHTML = \`
+      div.innerHTML = `
         <div class="feedback-meta">
-          <span>\${new Date(feedback.timestamp).toLocaleString()}</span>
-          <span>\${feedback.author?.name || feedback.author?.nickname || 'Anonymous'}</span>
+          <span>${new Date(feedback.timestamp).toLocaleString()}</span>
+          <span>${feedback.author?.name || feedback.author?.nickname || 'Anonymous'}</span>
         </div>
-        <div class="feedback-content">\${escapeHtml(feedback.content)}</div>
-        \${feedback.aiScoring ? \`
+        <div class="feedback-content">${escapeHtml(feedback.content)}</div>
+        ${feedback.aiScoring ? `
           <div class="feedback-scoring">
-            😊 Sentiment: \${(feedback.aiScoring.sentiment * 100).toFixed(0)}% |
-            🚨 Urgency: \${feedback.aiScoring.urgency}/10 |
-            📁 Category: \${feedback.aiScoring.category} |
-            🏷️ Keywords: \${feedback.aiScoring.keywords.join(', ')}
+            😊 Sentiment: ${(feedback.aiScoring.sentiment * 100).toFixed(0)}% |
+            🚨 Urgency: ${feedback.aiScoring.urgency}/10 |
+            📁 Category: ${feedback.aiScoring.category} |
+            🏷️ Keywords: ${feedback.aiScoring.keywords.join(', ')}
           </div>
-        \` : ''}
+        ` : ''}
         <div class="feedback-actions">
-          \${!feedback.acknowledged ? \`<button class="action-btn btn-ack" onclick="acknowledge('\${feedback.id}')">✓ Acknowledge</button>\` : '<span style="font-size: 12px; color: #4CAF50;">✓ Acknowledged</span>'}
-          <button class="action-btn btn-suggest" onclick="getSuggestions('\${feedback.id}')">💡 Get Response Ideas</button>
+          ${!feedback.acknowledged ? `<button class="action-btn btn-ack" onclick="acknowledge('${feedback.id}')">✓ Acknowledge</button>` : '<span style="font-size: 12px; color: #4CAF50;">✓ Acknowledged</span>'}
+          <button class="action-btn btn-suggest" onclick="getSuggestions('${feedback.id}')">💡 Get Response Ideas</button>
         </div>
-      \`;
+      `;
       container.insertBefore(div, container.firstChild);
     }
 
     async function acknowledge(feedbackId) {
-      await fetch(\`/session/\${sessionId}/api/acknowledge\`, {
+      await fetch(`/session/${sessionId}/api/acknowledge`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ feedbackId }),
@@ -254,7 +428,7 @@
 
     async function getSuggestions(feedbackId) {
       try {
-        const response = await fetch(\`/session/\${sessionId}/api/response-suggestion\`, {
+        const response = await fetch(`/session/${sessionId}/api/response-suggestion`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ feedbackId }),
@@ -273,13 +447,13 @@
       const container = document.getElementById('responseSuggestions');
       container.innerHTML = '';
       suggestions.forEach((sug, i) => {
-        container.innerHTML += \`
-          <div class="response-option" onclick="copyToClipboard('\${escapeHtml(sug)}')">
-            <strong>Option \${i + 1}:</strong><br>
-            \${escapeHtml(sug)}
+        container.innerHTML += `
+          <div class="response-option" onclick="copyToClipboard('${escapeHtml(sug)}')">
+            <strong>Option ${i + 1}:</strong><br>
+            ${escapeHtml(sug)}
             <div style="font-size: 11px; color: #999; margin-top: 5px;">Click to copy</div>
           </div>
-        \`;
+        `;
       });
       document.getElementById('responseModal').style.display = 'block';
     }
@@ -289,7 +463,7 @@
     }
 
     async function changePhase(phase) {
-      await fetch(\`/session/\${sessionId}/api/phase\`, {
+      await fetch(`/session/${sessionId}/api/phase`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phase }),
@@ -300,7 +474,7 @@
     async function generateSummary() {
       if (!confirm('Generate comprehensive AI summary? This may take a moment.')) return;
       try {
-        const response = await fetch(\`/session/\${sessionId}/api/summary\`, {
+        const response = await fetch(`/session/${sessionId}/api/summary`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ provider: 'cloudflare' }),
@@ -314,9 +488,44 @@
       }
     }
 
+    async function sendTeacherReaction(type) {
+      const button = document.getElementById(`teacher-reaction-${type}`);
+      const originalText = button.textContent;
+      button.style.background = '#e8f5e9';
+      button.style.borderColor = '#4CAF50';
+      button.disabled = true;
+
+      try {
+        await fetch(`/session/${sessionId}/api/reaction`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: type,
+            author: {
+              id: 'teacher_' + sessionId,
+              nickname: 'Teacher (Demo)'
+            }
+          }),
+        });
+
+        button.textContent = '✓ Sent';
+        setTimeout(() => {
+          button.style.background = '';
+          button.style.borderColor = '';
+          button.disabled = false;
+          button.textContent = originalText;
+        }, 2000);
+      } catch (error) {
+        button.style.background = '';
+        button.style.borderColor = '';
+        button.disabled = false;
+        console.error('Failed to send reaction:', error);
+      }
+    }
+
     async function refreshInsights() {
       try {
-        const response = await fetch(\`/session/\${sessionId}/api/insights?recentMinutes=10\`);
+        const response = await fetch(`/session/${sessionId}/api/insights?recentMinutes=10`);
         const data = await response.json();
         if (data.success) {
           displayInsights(data.insights);
@@ -336,13 +545,13 @@
       const grid = document.getElementById('insightsGrid');
       grid.innerHTML = '';
       insights.forEach(insight => {
-        grid.innerHTML += \`
-          <div class="insight-card \${insight.type}">
-            <div class="insight-title">\${insight.title}</div>
-            <div class="insight-message">\${insight.message}</div>
-            \${insight.action ? \`<div class="insight-action">💡 \${insight.action}</div>\` : ''}
+        grid.innerHTML += `
+          <div class="insight-card ${insight.type}">
+            <div class="insight-title">${insight.title}</div>
+            <div class="insight-message">${insight.message}</div>
+            ${insight.action ? `<div class="insight-action">💡 ${insight.action}</div>` : ''}
           </div>
-        \`;
+        `;
       });
       document.getElementById('insightsPanel').style.display = 'block';
     }
@@ -356,17 +565,17 @@
       const container = document.getElementById('patternsContainer');
       container.innerHTML = '';
       patterns.forEach(pattern => {
-        container.innerHTML += \`
+        container.innerHTML += `
           <div class="pattern-card">
             <div class="pattern-header">
-              <div class="pattern-topic">🔥 \${pattern.topic}</div>
-              <div class="pattern-count">\${pattern.count} mentions</div>
+              <div class="pattern-topic">🔥 ${pattern.topic}</div>
+              <div class="pattern-count">${pattern.count} mentions</div>
             </div>
             <div class="pattern-recommendation">
-              <strong>💡 Recommendation:</strong> \${pattern.recommendation}
+              <strong>💡 Recommendation:</strong> ${pattern.recommendation}
             </div>
           </div>
-        \`;
+        `;
       });
       document.getElementById('patternsSection').style.display = 'block';
     }
@@ -378,7 +587,7 @@
     }
 
     async function updateStats() {
-      const response = await fetch(\`/session/\${sessionId}/api/feedback\`);
+      const response = await fetch(`/session/${sessionId}/api/feedback`);
       const data = await response.json();
       if (!data.success) return;
 
@@ -410,11 +619,181 @@
       return div.innerHTML;
     }
 
+    // Course Responses Functions
+    async function viewResponses() {
+      document.getElementById('responsesViewModal').style.display = 'block';
+      await showPreResponses();
+    }
+
+    function closeResponsesModal() {
+      document.getElementById('responsesViewModal').style.display = 'none';
+    }
+
+    async function showPreResponses() {
+      const container = document.getElementById('responsesContent');
+      container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+      try {
+        const response = await fetch(`/session/${sessionId}/api/phase-responses?phase=pre`);
+        const data = await response.json();
+
+        if (!data.success) {
+          container.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">Failed to load responses</p>';
+          return;
+        }
+
+        if (!data.responses || data.responses.length === 0) {
+          container.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">No pre-course responses yet</p>';
+          return;
+        }
+
+        // Create summary header with aggregate stats
+        const skillLevels = {};
+        const learningPrefs = {};
+        data.responses.forEach(resp => {
+          if (resp.aiAnalysis?.skillLevel) {
+            skillLevels[resp.aiAnalysis.skillLevel] = (skillLevels[resp.aiAnalysis.skillLevel] || 0) + 1;
+          }
+        });
+
+        let summaryHTML = `
+          <div style="background: #f0f7ff; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+            <h3 style="margin-bottom: 15px;">📊 Quick Overview (${data.responses.length} attendees)</h3>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; font-size: 14px;">
+              ${Object.entries(skillLevels).map(([level, count]) =>
+                `<div style="background: white; padding: 10px 15px; border-radius: 8px;"><strong>${level}:</strong> ${count}</div>`
+              ).join('')}
+            </div>
+          </div>
+        `;
+
+        container.innerHTML = summaryHTML;
+
+        // Individual responses organized by attendee
+        data.responses.forEach((resp, idx) => {
+          let analysisHTML = '';
+          if (resp.aiAnalysis) {
+            analysisHTML = `
+              <div style="background: #f0f7ff; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 13px;">
+                <strong>🤖 AI Assessment:</strong><br>
+                📊 Skill Level: <span style="font-weight: 600; color: #667eea;">${resp.aiAnalysis.skillLevel}</span> |
+                🎯 Confidence: ${resp.aiAnalysis.confidence}/10<br>
+                ${resp.aiAnalysis.expectations.length > 0 ? `<br><strong>📝 Expectations:</strong> ${resp.aiAnalysis.expectations.join(', ')}` : ''}
+                ${resp.aiAnalysis.concerns.length > 0 ? `<br><strong>⚠️ Concerns:</strong> ${resp.aiAnalysis.concerns.join(', ')}` : ''}
+              </div>
+            `;
+          }
+
+          // Get question purposes from the questions array
+          const questionsMap = {};
+          if (data.questions && Array.isArray(data.questions)) {
+            data.questions.forEach((q, i) => {
+              questionsMap[i] = q;
+            });
+          }
+
+          const responsesHTML = resp.responses.map((r, rIdx) => {
+            const questionData = questionsMap[r.questionIndex];
+            const purposeHTML = questionData?.purpose ?
+              `<div style="font-size: 12px; color: #999; margin-top: 4px; font-style: italic;">💡 ${questionData.purpose}</div>` : '';
+
+            return `
+              <div style="background: #f9f9f9; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 3px solid #667eea;">
+                <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">${escapeHtml(r.question)}</div>
+                ${purposeHTML}
+                <div style="color: #333; font-size: 15px; margin-top: 8px; padding: 10px; background: white; border-radius: 6px;">${escapeHtml(r.answer)}</div>
+              </div>
+            `;
+          }).join('');
+
+          container.innerHTML += `
+            <div style="background: white; padding: 25px; border-radius: 12px; margin: 20px 0; border-left: 4px solid #667eea; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div style="font-size: 18px; font-weight: 600; color: #333;">
+                  👤 ${resp.author?.nickname || resp.author?.name || 'Anonymous'}
+                </div>
+                <div style="font-size: 13px; color: #999;">
+                  ${new Date(resp.timestamp).toLocaleString()}
+                </div>
+              </div>
+              ${responsesHTML}
+              ${analysisHTML}
+            </div>
+          `;
+        });
+      } catch (error) {
+        container.innerHTML = '<p style="color: #c62828; padding: 20px; text-align: center;">Error loading responses</p>';
+        console.error('Failed to load pre-course responses:', error);
+      }
+    }
+
+    async function showPostResponses() {
+      const container = document.getElementById('responsesContent');
+      container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+
+      try {
+        const response = await fetch(`/session/${sessionId}/api/phase-responses?phase=post`);
+        const data = await response.json();
+
+        if (!data.success) {
+          container.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">Failed to load responses</p>';
+          return;
+        }
+
+        if (!data.responses || data.responses.length === 0) {
+          container.innerHTML = '<p style="color: #999; padding: 20px; text-align: center;">No post-course responses yet</p>';
+          return;
+        }
+
+        container.innerHTML = `<h3 style="margin-bottom: 15px;">Total Responses: ${data.responses.length}</h3>`;
+
+        data.responses.forEach((resp, idx) => {
+          let analysisHTML = '';
+          if (resp.aiAnalysis) {
+            analysisHTML = `
+              <div style="background: #f0f7ff; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px;">
+                <strong>🤖 AI Analysis:</strong><br>
+                ⭐ Satisfaction: ${resp.aiAnalysis.satisfactionScore}/10 |
+                📈 Skill Change: <span style="font-weight: 600;">${resp.aiAnalysis.skillLevelChange || 'N/A'}</span><br>
+                ${resp.aiAnalysis.topPositives.length > 0 ? `<br><strong>✅ Positives:</strong> ${resp.aiAnalysis.topPositives.join(', ')}` : ''}
+                ${resp.aiAnalysis.topImprovements.length > 0 ? `<br><strong>💡 Improvements:</strong> ${resp.aiAnalysis.topImprovements.join(', ')}` : ''}
+              </div>
+            `;
+          }
+
+          const responsesHTML = resp.responses.map(r => `
+            <div style="background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 8px;">
+              <div style="font-weight: 600; color: #667eea; margin-bottom: 5px;">${escapeHtml(r.question)}</div>
+              <div style="color: #333;">${escapeHtml(r.answer)}</div>
+            </div>
+          `).join('');
+
+          container.innerHTML += `
+            <div style="background: white; padding: 20px; border-radius: 12px; margin: 15px 0; border-left: 4px solid #FF9800;">
+              <div style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                Response #${idx + 1} | ${new Date(resp.timestamp).toLocaleString()} |
+                ${resp.author?.nickname || resp.author?.name || 'Anonymous'}
+              </div>
+              ${responsesHTML}
+              ${analysisHTML}
+            </div>
+          `;
+        });
+      } catch (error) {
+        container.innerHTML = '<p style="color: #c62828; padding: 20px; text-align: center;">Error loading responses</p>';
+        console.error('Failed to load post-course responses:', error);
+      }
+    }
+
     // Close modal when clicking outside
     window.onclick = function(event) {
       const modal = document.getElementById('responseModal');
+      const responsesModal = document.getElementById('responsesViewModal');
       if (event.target == modal) {
         closeModal();
+      }
+      if (event.target == responsesModal) {
+        closeResponsesModal();
       }
     }
 

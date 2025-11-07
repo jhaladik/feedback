@@ -7,8 +7,8 @@ export { FeedbackSession } from './durable-objects/FeedbackSession';
 export { TeacherHub } from './durable-objects/TeacherHub';
 
 // Import HTML files
-import attendeeHTML from './ui/attendee.html';
-import teacherHTML from './ui/teacher.html';
+import attendeeHTML from './ui/enhanced-attendee.html';
+import teacherHTML from './ui/enhanced-teacher.html';
 import welcomeHTML from './ui/welcome.html';
 
 export default {
