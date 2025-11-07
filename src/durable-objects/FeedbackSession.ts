@@ -12,6 +12,15 @@ import {
   FeedbackVisibility,
 } from './types';
 import { createAIProvider } from '../ai/providers';
+import {
+  enhanceFeedback,
+  detectPatterns,
+  suggestResponse,
+  generateInsights,
+  clusterQuestions,
+  generateMiniSummary,
+  previewSentiment,
+} from '../ai/engagement';
 
 export class FeedbackSession implements DurableObject {
   private state: DurableObjectState;
@@ -66,6 +75,31 @@ export class FeedbackSession implements DurableObject {
 
     if (url.pathname === '/api/summary' && request.method === 'POST') {
       return this.handleGenerateSummary(request);
+    }
+
+    // New Engagement Features
+    if (url.pathname === '/api/enhance-feedback' && request.method === 'POST') {
+      return this.handleEnhanceFeedback(request);
+    }
+
+    if (url.pathname === '/api/sentiment-preview' && request.method === 'POST') {
+      return this.handleSentimentPreview(request);
+    }
+
+    if (url.pathname === '/api/response-suggestion' && request.method === 'POST') {
+      return this.handleResponseSuggestion(request);
+    }
+
+    if (url.pathname === '/api/insights' && request.method === 'GET') {
+      return this.handleGetInsights(request);
+    }
+
+    if (url.pathname === '/api/mini-summary' && request.method === 'GET') {
+      return this.handleMiniSummary(request);
+    }
+
+    if (url.pathname === '/api/cluster-questions' && request.method === 'POST') {
+      return this.handleClusterQuestions(request);
     }
 
     return new Response('Not Found', { status: 404 });
@@ -479,5 +513,224 @@ Return only the questions, one per line, numbered 1-5.`;
     const sentimentScore = (avgSentiment + 1) / 2; // Convert -1 to 1 range to 0 to 1
 
     return Math.round((normalizedRate * 0.6 + sentimentScore * 0.4) * 100);
+  }
+
+  // NEW ENGAGEMENT FEATURES
+
+  // Enhance feedback with AI suggestions
+  private async handleEnhanceFeedback(request: Request): Promise<Response> {
+    try {
+      if (!this.sessionState) {
+        return new Response('Session not initialized', { status: 400 });
+      }
+
+      const body = await request.json();
+      const { text } = body;
+
+      if (!text) {
+        return new Response('Text required', { status: 400 });
+      }
+
+      const aiProvider = createAIProvider(this.sessionState.settings.aiProvider, this.env);
+      const result = await enhanceFeedback(text, this.sessionState.phase, aiProvider);
+
+      return new Response(JSON.stringify({
+        success: true,
+        improved: result.improved,
+        suggestions: result.suggestions,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
+  }
+
+  // Preview sentiment before submitting
+  private async handleSentimentPreview(request: Request): Promise<Response> {
+    try {
+      if (!this.sessionState) {
+        return new Response('Session not initialized', { status: 400 });
+      }
+
+      const body = await request.json();
+      const { text } = body;
+
+      if (!text) {
+        return new Response('Text required', { status: 400 });
+      }
+
+      const aiProvider = createAIProvider(this.sessionState.settings.aiProvider, this.env);
+      const result = await previewSentiment(text, aiProvider);
+
+      return new Response(JSON.stringify({
+        success: true,
+        ...result,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
+  }
+
+  // Get AI response suggestions for feedback
+  private async handleResponseSuggestion(request: Request): Promise<Response> {
+    try {
+      if (!this.sessionState) {
+        return new Response('Session not initialized', { status: 400 });
+      }
+
+      const body = await request.json();
+      const { feedbackId } = body;
+
+      const feedback = this.sessionState.feedback.find(f => f.id === feedbackId);
+      if (!feedback) {
+        return new Response('Feedback not found', { status: 404 });
+      }
+
+      const aiProvider = createAIProvider(this.sessionState.settings.aiProvider, this.env);
+      const suggestions = await suggestResponse(feedback, aiProvider);
+
+      return new Response(JSON.stringify({
+        success: true,
+        suggestions,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
+  }
+
+  // Get proactive insights
+  private async handleGetInsights(request: Request): Promise<Response> {
+    try {
+      if (!this.sessionState) {
+        return new Response('Session not initialized', { status: 400 });
+      }
+
+      const url = new URL(request.url);
+      const recentMinutes = parseInt(url.searchParams.get('recentMinutes') || '10');
+
+      const cutoffTime = Date.now() - (recentMinutes * 60 * 1000);
+      const recentFeedback = this.sessionState.feedback.filter(f => f.timestamp > cutoffTime);
+
+      const aiProvider = createAIProvider(this.sessionState.settings.aiProvider, this.env);
+      const insights = await generateInsights(
+        this.sessionState.feedback,
+        recentFeedback,
+        this.sessionState.phase,
+        aiProvider
+      );
+
+      // Broadcast insights to teacher
+      if (insights.length > 0) {
+        this.broadcast({
+          type: 'insight_generated',
+          payload: insights,
+          timestamp: Date.now(),
+        });
+      }
+
+      // Detect patterns
+      const patterns = await detectPatterns(recentFeedback, aiProvider);
+      if (patterns.length > 0) {
+        this.broadcast({
+          type: 'pattern_detected',
+          payload: patterns,
+          timestamp: Date.now(),
+        });
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        insights,
+        patterns,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
+  }
+
+  // Get mini summary of recent feedback
+  private async handleMiniSummary(request: Request): Promise<Response> {
+    try {
+      if (!this.sessionState) {
+        return new Response('Session not initialized', { status: 400 });
+      }
+
+      const url = new URL(request.url);
+      const recentMinutes = parseInt(url.searchParams.get('recentMinutes') || '10');
+
+      const cutoffTime = Date.now() - (recentMinutes * 60 * 1000);
+      const recentFeedback = this.sessionState.feedback.filter(f => f.timestamp > cutoffTime);
+
+      if (recentFeedback.length === 0) {
+        return new Response(JSON.stringify({
+          success: true,
+          summary: 'No recent feedback to summarize.',
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const aiProvider = createAIProvider(this.sessionState.settings.aiProvider, this.env);
+      const summary = await generateMiniSummary(recentFeedback, this.sessionState.phase, aiProvider);
+
+      // Broadcast mini summary
+      this.broadcast({
+        type: 'mini_summary',
+        payload: { summary, feedbackCount: recentFeedback.length },
+        timestamp: Date.now(),
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        summary,
+        feedbackCount: recentFeedback.length,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
+  }
+
+  // Cluster similar questions
+  private async handleClusterQuestions(request: Request): Promise<Response> {
+    try {
+      if (!this.sessionState) {
+        return new Response('Session not initialized', { status: 400 });
+      }
+
+      // Get only question-type feedback
+      const questions = this.sessionState.feedback.filter(f =>
+        f.aiScoring?.category === 'question' || f.content.includes('?')
+      );
+
+      if (questions.length === 0) {
+        return new Response(JSON.stringify({
+          success: true,
+          clusters: [],
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const aiProvider = createAIProvider(this.sessionState.settings.aiProvider, this.env);
+      const clusters = await clusterQuestions(questions, aiProvider);
+
+      return new Response(JSON.stringify({
+        success: true,
+        clusters,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
   }
 }

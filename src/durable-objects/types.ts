@@ -169,6 +169,9 @@ export type WSMessageType =
   | 'ai_scoring_complete'
   | 'phase_changed'
   | 'summary_ready'
+  | 'insight_generated'
+  | 'pattern_detected'
+  | 'mini_summary'
   | 'error';
 
 export interface WSMessage {
@@ -230,6 +233,32 @@ export interface EnhanceTextResponse {
   original: string;
   enhanced: string;
   suggestions: string[];
+}
+
+export interface SentimentPreviewRequest {
+  text: string;
+}
+
+export interface SentimentPreviewResponse {
+  sentiment: number;
+  tone: string;
+  suggestion?: string;
+}
+
+export interface ResponseSuggestionRequest {
+  feedbackId: string;
+}
+
+export interface ResponseSuggestionResponse {
+  suggestions: string[];
+}
+
+export interface QuestionClusterRequest {
+  questionIds?: string[];  // Optional: cluster specific questions, or all if omitted
+}
+
+export interface InsightsRequest {
+  recentMinutes?: number;  // Look at feedback from last N minutes
 }
 
 // Environment bindings
