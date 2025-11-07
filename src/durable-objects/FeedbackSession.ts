@@ -10,6 +10,10 @@ import {
   WSMessage,
   AIScoring,
   FeedbackVisibility,
+  Reaction,
+  ReactionType,
+  TeacherAction,
+  TeacherActionType,
 } from './types';
 import { createAIProvider } from '../ai/providers';
 import {
@@ -26,13 +30,17 @@ export class FeedbackSession implements DurableObject {
   private state: DurableObjectState;
   private env: Env;
   private sessions: Set<WebSocket>;
+  private teacherSessions: Set<WebSocket>; // Teacher-only connections
   private sessionState: FeedbackSessionState | null;
+  private whisperInterval: number | null; // For periodic AI whispers
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
     this.env = env;
     this.sessions = new Set();
+    this.teacherSessions = new Set();
     this.sessionState = null;
+    this.whisperInterval = null;
 
     // Accept WebSocket connections
     this.state.blockConcurrencyWhile(async () => {
@@ -102,6 +110,24 @@ export class FeedbackSession implements DurableObject {
       return this.handleClusterQuestions(request);
     }
 
+    // Quick Reactions
+    if (url.pathname === '/api/reaction' && request.method === 'POST') {
+      return this.handleSubmitReaction(request);
+    }
+
+    if (url.pathname === '/api/reactions' && request.method === 'GET') {
+      return this.handleGetReactions(request);
+    }
+
+    // Teacher Actions
+    if (url.pathname === '/api/teacher-action' && request.method === 'POST') {
+      return this.handleTeacherAction(request);
+    }
+
+    if (url.pathname === '/api/set-topic' && request.method === 'POST') {
+      return this.handleSetTopic(request);
+    }
+
     return new Response('Not Found', { status: 404 });
   }
 
@@ -134,6 +160,8 @@ export class FeedbackSession implements DurableObject {
         createdAt: Date.now(),
         settings: defaultSettings,
         feedback: [],
+        reactions: [],
+        teacherActions: [],
       };
 
       await this.state.storage.put('session', this.sessionState);
@@ -418,7 +446,14 @@ Please analyze this feedback and provide a comprehensive summary with:
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
 
+    // Check if this is a teacher connection
+    const url = new URL(request.url);
+    const isTeacher = url.searchParams.get('role') === 'teacher';
+
     this.sessions.add(server);
+    if (isTeacher) {
+      this.teacherSessions.add(server);
+    }
 
     server.accept();
 
@@ -433,6 +468,9 @@ Please analyze this feedback and provide a comprehensive summary with:
 
     server.addEventListener('close', () => {
       this.sessions.delete(server);
+      if (isTeacher) {
+        this.teacherSessions.delete(server);
+      }
     });
 
     return new Response(null, { status: 101, webSocket: client });
@@ -441,14 +479,27 @@ Please analyze this feedback and provide a comprehensive summary with:
   // Broadcast message to all connected clients
   private broadcast(message: WSMessage): void {
     const messageStr = JSON.stringify(message);
-    for (const session of this.sessions) {
+    const targetSessions = message.teacherOnly ? this.teacherSessions : this.sessions;
+
+    for (const session of targetSessions) {
       try {
         session.send(messageStr);
       } catch (error) {
         console.error('Failed to send message:', error);
         this.sessions.delete(session);
+        this.teacherSessions.delete(session);
       }
     }
+  }
+
+  // Whisper to teacher only
+  private whisper(message: string, priority: 'low' | 'medium' | 'high' = 'medium'): void {
+    this.broadcast({
+      type: 'whisper',
+      payload: { message, priority },
+      timestamp: Date.now(),
+      teacherOnly: true,
+    });
   }
 
   // Generate pre-course questions using AI
@@ -732,5 +783,219 @@ Return only the questions, one per line, numbered 1-5.`;
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
     }
+  }
+
+  // QUICK REACTIONS & TEACHER ACTIONS
+
+  // Submit a quick reaction
+  private async handleSubmitReaction(request: Request): Promise<Response> {
+    try {
+      if (!this.sessionState) {
+        return new Response('Session not initialized', { status: 400 });
+      }
+
+      const body = await request.json();
+      const { type, confidenceLevel, author } = body;
+
+      if (!type) {
+        return new Response('Reaction type required', { status: 400 });
+      }
+
+      const reaction: Reaction = {
+        id: crypto.randomUUID(),
+        sessionId: this.sessionState.id,
+        timestamp: Date.now(),
+        type: type as ReactionType,
+        author,
+        confidenceLevel,
+      };
+
+      this.sessionState.reactions.push(reaction);
+      await this.state.storage.put('session', this.sessionState);
+
+      // Broadcast to all clients
+      this.broadcast({
+        type: 'reaction_added',
+        payload: reaction,
+        timestamp: Date.now(),
+      });
+
+      // Check for whisper triggers
+      await this.checkReactionTriggers();
+
+      return new Response(JSON.stringify({
+        success: true,
+        reaction,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
+  }
+
+  // Get reaction statistics
+  private async handleGetReactions(request: Request): Promise<Response> {
+    try {
+      if (!this.sessionState) {
+        return new Response('Session not initialized', { status: 400 });
+      }
+
+      const url = new URL(request.url);
+      const recentMinutes = parseInt(url.searchParams.get('recentMinutes') || '5');
+
+      const cutoffTime = Date.now() - (recentMinutes * 60 * 1000);
+      const recentReactions = this.sessionState.reactions.filter(r => r.timestamp > cutoffTime);
+
+      const stats = {
+        gotIt: recentReactions.filter(r => r.type === 'got_it').length,
+        confused: recentReactions.filter(r => r.type === 'confused').length,
+        tooFast: recentReactions.filter(r => r.type === 'too_fast').length,
+        tooSlow: recentReactions.filter(r => r.type === 'too_slow').length,
+        breakNeeded: recentReactions.filter(r => r.type === 'break_needed').length,
+        totalReactions: recentReactions.length,
+        averageConfidence: 0,
+      };
+
+      const confidenceLevels = recentReactions
+        .filter(r => r.confidenceLevel !== undefined)
+        .map(r => r.confidenceLevel!);
+
+      if (confidenceLevels.length > 0) {
+        stats.averageConfidence = confidenceLevels.reduce((a, b) => a + b, 0) / confidenceLevels.length;
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        stats,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
+  }
+
+  // Teacher action (one-click)
+  private async handleTeacherAction(request: Request): Promise<Response> {
+    try {
+      if (!this.sessionState) {
+        return new Response('Session not initialized', { status: 400 });
+      }
+
+      const body = await request.json();
+      const { type, message, duration } = body;
+
+      if (!type) {
+        return new Response('Action type required', { status: 400 });
+      }
+
+      const action: TeacherAction = {
+        id: crypto.randomUUID(),
+        sessionId: this.sessionState.id,
+        timestamp: Date.now(),
+        type: type as TeacherActionType,
+        message,
+        duration,
+      };
+
+      this.sessionState.teacherActions.push(action);
+      await this.state.storage.put('session', this.sessionState);
+
+      // Broadcast to all attendees
+      const broadcastMessage = this.getActionBroadcastMessage(action);
+      this.broadcast({
+        type: 'teacher_action',
+        payload: { action, message: broadcastMessage },
+        timestamp: Date.now(),
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        action,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
+  }
+
+  // Set current topic (for context)
+  private async handleSetTopic(request: Request): Promise<Response> {
+    try {
+      if (!this.sessionState) {
+        return new Response('Session not initialized', { status: 400 });
+      }
+
+      const body = await request.json();
+      const { topic } = body;
+
+      this.sessionState.currentTopic = topic;
+      await this.state.storage.put('session', this.sessionState);
+
+      return new Response(JSON.stringify({
+        success: true,
+        topic,
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
+  }
+
+  // Check reaction patterns and trigger whispers
+  private async checkReactionTriggers(): Promise<void> {
+    if (!this.sessionState) return;
+
+    const recentReactions = this.sessionState.reactions.filter(
+      r => r.timestamp > Date.now() - 5 * 60 * 1000 // Last 5 minutes
+    );
+
+    const confused = recentReactions.filter(r => r.type === 'confused').length;
+    const tooFast = recentReactions.filter(r => r.type === 'too_fast').length;
+    const breakNeeded = recentReactions.filter(r => r.type === 'break_needed').length;
+
+    // Trigger whispers based on patterns
+    if (confused >= 3) {
+      this.whisper(`🚨 ${confused} people are confused - consider recap or clarification`, 'high');
+    }
+
+    if (tooFast >= 3) {
+      this.whisper(`⏸️ ${tooFast} people say it's too fast - consider slowing down`, 'high');
+    }
+
+    if (breakNeeded >= 2) {
+      this.whisper(`☕ ${breakNeeded} people need a break - consider short pause`, 'medium');
+    }
+
+    // Confidence check
+    const confidenceLevels = recentReactions
+      .filter(r => r.confidenceLevel !== undefined)
+      .map(r => r.confidenceLevel!);
+
+    if (confidenceLevels.length >= 3) {
+      const avg = confidenceLevels.reduce((a, b) => a + b, 0) / confidenceLevels.length;
+      if (avg < 2.5) {
+        this.whisper(`📉 Average confidence is low (${avg.toFixed(1)}/5) - class may be struggling`, 'high');
+      }
+    }
+  }
+
+  // Get user-friendly message for teacher action
+  private getActionBroadcastMessage(action: TeacherAction): string {
+    const messages: Record<TeacherActionType, string> = {
+      take_break: action.duration
+        ? `☕ Taking a ${action.duration}-minute break. Back soon!`
+        : '☕ Taking a short break. Back soon!',
+      do_recap: '📝 Let\'s do a quick recap of what we\'ve covered',
+      skip_topic: '⏭️ Skipping ahead to the next topic',
+      speed_up: '⚡ Picking up the pace a bit',
+      slow_down: '🐌 Slowing down to make sure everyone follows',
+      poll_class: '📊 Quick comprehension check coming up',
+    };
+
+    return action.message || messages[action.type];
   }
 }

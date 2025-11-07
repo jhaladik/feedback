@@ -59,8 +59,11 @@ export interface FeedbackSessionState {
   endedAt?: number;         // When post phase completed
   settings: SessionSettings;
   feedback: Feedback[];
+  reactions: Reaction[];    // Quick emoji reactions
+  teacherActions: TeacherAction[]; // Teacher's one-click actions
   preCourseQuestions?: string[]; // AI-generated questions
   summary?: SessionSummary;
+  currentTopic?: string;    // What topic is being discussed now (for context)
 }
 
 // Session Summary
@@ -161,6 +164,33 @@ export interface TeacherAccount {
   sessionIds: string[];
 }
 
+// Quick Reaction Types
+export type ReactionType = 'got_it' | 'confused' | 'too_fast' | 'too_slow' | 'break_needed';
+
+export interface Reaction {
+  id: string;
+  sessionId: string;
+  timestamp: number;
+  type: ReactionType;
+  author?: {
+    nickname?: string;
+    id?: string;
+  };
+  confidenceLevel?: number; // 1-5 scale
+}
+
+// Teacher Action Types
+export type TeacherActionType = 'take_break' | 'do_recap' | 'skip_topic' | 'speed_up' | 'slow_down' | 'poll_class';
+
+export interface TeacherAction {
+  id: string;
+  sessionId: string;
+  timestamp: number;
+  type: TeacherActionType;
+  message?: string; // Optional message to broadcast
+  duration?: number; // For breaks (in minutes)
+}
+
 // WebSocket Messages
 export type WSMessageType =
   | 'feedback_added'
@@ -172,12 +202,16 @@ export type WSMessageType =
   | 'insight_generated'
   | 'pattern_detected'
   | 'mini_summary'
+  | 'reaction_added'
+  | 'teacher_action'
+  | 'whisper' // Teacher-only message
   | 'error';
 
 export interface WSMessage {
   type: WSMessageType;
   payload: any;
   timestamp: number;
+  teacherOnly?: boolean; // If true, only send to teacher connections
 }
 
 // API Request/Response Types
@@ -259,6 +293,31 @@ export interface QuestionClusterRequest {
 
 export interface InsightsRequest {
   recentMinutes?: number;  // Look at feedback from last N minutes
+}
+
+export interface SubmitReactionRequest {
+  type: ReactionType;
+  confidenceLevel?: number;
+  author?: {
+    nickname?: string;
+    id?: string;
+  };
+}
+
+export interface TeacherActionRequest {
+  type: TeacherActionType;
+  message?: string;
+  duration?: number;
+}
+
+export interface ReactionStatsResponse {
+  gotIt: number;
+  confused: number;
+  tooFast: number;
+  tooSlow: number;
+  breakNeeded: number;
+  averageConfidence: number;
+  totalReactions: number;
 }
 
 // Environment bindings
