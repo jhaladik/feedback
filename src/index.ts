@@ -217,6 +217,18 @@ function serveAttendeeUI(): Response {
     .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .ai-badge { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; margin-left: 8px; }
+    .quick-reactions { background: #f9f9f9; padding: 20px; border-radius: 12px; margin: 25px 0; border: 2px dashed #ddd; }
+    .quick-reactions h3 { color: #333; margin-bottom: 5px; font-size: 18px; }
+    .reaction-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+    .btn-reaction { background: white; border: 2px solid #ddd; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s; }
+    .btn-reaction:hover { border-color: #667eea; background: #f0f0ff; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2); }
+    .btn-reaction:active { transform: scale(0.95); }
+    .confidence-slider { margin-top: 15px; }
+    .confidence-slider label { display: block; margin-bottom: 8px; font-weight: 500; color: #555; }
+    .confidence-slider input[type="range"] { width: 100%; height: 8px; border-radius: 5px; background: #ddd; outline: none; }
+    .confidence-slider input[type="range"]::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #667eea; cursor: pointer; }
+    .confidence-slider input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #667eea; cursor: pointer; border: none; }
+    .teacher-action-notification { background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%); color: white; padding: 16px; border-radius: 12px; margin: 20px 0; text-align: center; font-weight: 600; font-size: 16px; animation: slideDown 0.3s; box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3); }
   </style>
 </head>
 <body>
@@ -269,6 +281,24 @@ function serveAttendeeUI(): Response {
 
       <button class="btn btn-submit" id="submitBtn" onclick="submitFeedback()">Submit Feedback</button>
 
+      <div class="quick-reactions">
+        <h3>⚡ Quick Reactions</h3>
+        <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Let the teacher know instantly how you're feeling</p>
+        <div class="reaction-buttons">
+          <button class="btn-reaction" onclick="sendReaction('got_it')" title="I got it!">👍 Got it</button>
+          <button class="btn-reaction" onclick="sendReaction('confused')" title="I'm confused">🤔 Confused</button>
+          <button class="btn-reaction" onclick="sendReaction('too_fast')" title="Too fast">⏸️ Too fast</button>
+          <button class="btn-reaction" onclick="sendReaction('too_slow')" title="Too slow">🐌 Too slow</button>
+          <button class="btn-reaction" onclick="sendReaction('break_needed')" title="Need a break">☕ Break</button>
+        </div>
+        <div class="confidence-slider">
+          <label for="confidence">My confidence level: <span id="confidenceValue">3</span>/5</label>
+          <input type="range" id="confidence" min="1" max="5" value="3" oninput="updateConfidenceValue(this.value)">
+        </div>
+      </div>
+
+      <div id="teacherActionNotification" class="teacher-action-notification" style="display: none;"></div>
+
       <div class="feedback-list">
         <h2>💬 Public Feedback</h2>
         <div id="publicFeedback"></div>
@@ -318,8 +348,51 @@ function serveAttendeeUI(): Response {
           }
         } else if (message.type === 'phase_changed') {
           updatePhaseBadge(message.payload.newPhase);
+        } else if (message.type === 'teacher_action') {
+          showTeacherAction(message.payload);
         }
       };
+    }
+
+    async function sendReaction(type) {
+      try {
+        const confidence = document.getElementById('confidence').value;
+        const response = await fetch(\`/session/\${sessionId}/api/reaction\`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type,
+            confidenceLevel: parseInt(confidence),
+          }),
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          showSuccess('✅ Reaction sent!');
+        }
+      } catch (error) {
+        console.error('Failed to send reaction:', error);
+      }
+    }
+
+    function updateConfidenceValue(value) {
+      document.getElementById('confidenceValue').textContent = value;
+    }
+
+    function showTeacherAction(action) {
+      const notification = document.getElementById('teacherActionNotification');
+      const messages = {
+        take_break: action.duration ? \`☕ Taking a \${action.duration}-minute break. Back soon!\` : '☕ Taking a short break. Back soon!',
+        do_recap: '📝 Let\\'s do a quick recap of what we\\'ve covered',
+        skip_topic: '⏭️ Skipping ahead to the next topic',
+        speed_up: '⚡ Picking up the pace a bit',
+        slow_down: '🐌 Slowing down to make sure everyone follows',
+        poll_class: '📊 Quick comprehension check coming up',
+      };
+
+      notification.textContent = action.message || messages[action.type];
+      notification.style.display = 'block';
+      setTimeout(() => notification.style.display = 'none', 8000);
     }
 
     async function helpMeWrite() {
@@ -638,7 +711,35 @@ function serveTeacherUI(): Response {
       .loading { text-align: center; padding: 40px; color: #666; }
       .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px; }
       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  
+
+      /* Whisper Panel */
+      .whisper-panel { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+      .whisper-panel h3 { margin-bottom: 15px; font-size: 18px; }
+      #whisperContainer { max-height: 300px; overflow-y: auto; }
+      .whisper-item { background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; margin-bottom: 10px; animation: slideIn 0.3s; border-left: 4px solid white; }
+      .whisper-item.high { border-left-color: #f44336; }
+      .whisper-item.medium { border-left-color: #FF9800; }
+      .whisper-item.low { border-left-color: #4CAF50; }
+      .whisper-message { font-size: 14px; line-height: 1.5; }
+      .whisper-time { font-size: 11px; opacity: 0.8; margin-top: 5px; }
+
+      /* Teacher Actions */
+      .teacher-actions { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+      .teacher-actions h3 { margin-bottom: 15px; color: #333; }
+      .action-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+      .btn-action { background: #FF9800; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.3s; }
+      .btn-action:hover { background: #F57C00; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3); }
+
+      /* Reaction Stats */
+      .reaction-stats { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+      .reaction-stats h3 { margin-bottom: 15px; color: #333; }
+      .reaction-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; }
+      .reaction-stat { background: #f9f9f9; padding: 15px; border-radius: 10px; text-align: center; transition: all 0.3s; }
+      .reaction-stat:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+      .reaction-icon { font-size: 32px; display: block; margin-bottom: 8px; }
+      .reaction-count { font-size: 24px; font-weight: bold; color: #667eea; display: block; margin-bottom: 4px; }
+      .reaction-label { font-size: 12px; color: #666; }
+
       @media (max-width: 900px) {
         .feedback-container { grid-template-columns: 1fr; }
       }
@@ -659,7 +760,26 @@ function serveTeacherUI(): Response {
         <button class="btn btn-secondary" onclick="refreshInsights()">🔄 Refresh Insights</button>
         <button class="btn btn-warning" onclick="copyAttendeeLink()">📎 Copy Attendee Link</button>
       </div>
-  
+
+      <!-- Whisper Panel (AI Co-Pilot) -->
+      <div id="whisperPanel" class="whisper-panel" style="display:none;">
+        <h3>🤖 AI Whispers (Co-Pilot)</h3>
+        <div id="whisperContainer"></div>
+      </div>
+
+      <!-- Teacher Actions -->
+      <div class="teacher-actions">
+        <h3>⚡ One-Click Actions</h3>
+        <div class="action-buttons">
+          <button class="btn btn-action" onclick="executeAction('take_break', 10)">☕ Take Break (10 min)</button>
+          <button class="btn btn-action" onclick="executeAction('do_recap')">📝 Do Recap</button>
+          <button class="btn btn-action" onclick="executeAction('skip_topic')">⏭️ Skip Topic</button>
+          <button class="btn btn-action" onclick="executeAction('speed_up')">⚡ Speed Up</button>
+          <button class="btn btn-action" onclick="executeAction('slow_down')">🐌 Slow Down</button>
+          <button class="btn btn-action" onclick="executeAction('poll_class')">📊 Poll Class</button>
+        </div>
+      </div>
+
       <!-- AI Insights Panel -->
       <div class="insights-panel" id="insightsPanel" style="display:none;">
         <h2>🤖 AI Insights & Alerts</h2>
@@ -689,6 +809,42 @@ function serveTeacherUI(): Response {
         <div class="stat-card">
           <div class="stat-value" id="engagementScore">0%</div>
           <div class="stat-label">Engagement</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="avgConfidence">0</div>
+          <div class="stat-label">Avg Confidence</div>
+        </div>
+      </div>
+
+      <!-- Reaction Stats -->
+      <div class="reaction-stats">
+        <h3>⚡ Recent Reactions (Last 5 min)</h3>
+        <div class="reaction-grid">
+          <div class="reaction-stat">
+            <span class="reaction-icon">👍</span>
+            <span class="reaction-count" id="gotItCount">0</span>
+            <span class="reaction-label">Got it</span>
+          </div>
+          <div class="reaction-stat">
+            <span class="reaction-icon">🤔</span>
+            <span class="reaction-count" id="confusedCount">0</span>
+            <span class="reaction-label">Confused</span>
+          </div>
+          <div class="reaction-stat">
+            <span class="reaction-icon">⏸️</span>
+            <span class="reaction-count" id="tooFastCount">0</span>
+            <span class="reaction-label">Too fast</span>
+          </div>
+          <div class="reaction-stat">
+            <span class="reaction-icon">🐌</span>
+            <span class="reaction-count" id="tooSlowCount">0</span>
+            <span class="reaction-label">Too slow</span>
+          </div>
+          <div class="reaction-stat">
+            <span class="reaction-icon">☕</span>
+            <span class="reaction-count" id="breakNeededCount">0</span>
+            <span class="reaction-label">Break</span>
+          </div>
         </div>
       </div>
   
@@ -726,14 +882,18 @@ function serveTeacherUI(): Response {
           alert('No session ID provided');
           return;
         }
-  
+
         await loadSession();
         loadFeedback();
+        loadReactionStats();
         connectWebSocket();
-  
+
         // Auto-refresh insights every 60 seconds
         insightsInterval = setInterval(refreshInsights, 60000);
         setTimeout(refreshInsights, 5000); // Initial load after 5s
+
+        // Auto-refresh reaction stats every 10 seconds
+        setInterval(loadReactionStats, 10000);
       }
   
       async function loadSession() {
@@ -748,8 +908,8 @@ function serveTeacherUI(): Response {
   
       function connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        ws = new WebSocket(\`\${protocol}//\${window.location.host}/session/\${sessionId}\`);
-  
+        ws = new WebSocket(\`\${protocol}//\${window.location.host}/session/\${sessionId}?role=teacher\`);
+
         ws.onmessage = (event) => {
           const message = JSON.parse(event.data);
           if (message.type === 'feedback_added') {
@@ -761,8 +921,70 @@ function serveTeacherUI(): Response {
             displayInsights(message.payload);
           } else if (message.type === 'pattern_detected') {
             displayPatterns(message.payload);
+          } else if (message.type === 'whisper') {
+            showWhisper(message.payload);
+          } else if (message.type === 'reaction_added') {
+            loadReactionStats();
           }
         };
+      }
+
+      function showWhisper(whisper) {
+        const panel = document.getElementById('whisperPanel');
+        const container = document.getElementById('whisperContainer');
+
+        const div = document.createElement('div');
+        div.className = 'whisper-item ' + whisper.priority;
+        div.innerHTML = \`
+          <div class="whisper-message">\${whisper.message}</div>
+          <div class="whisper-time">\${new Date().toLocaleTimeString()}</div>
+        \`;
+
+        container.insertBefore(div, container.firstChild);
+        panel.style.display = 'block';
+
+        // Auto-hide low priority whispers after 30 seconds
+        if (whisper.priority === 'low') {
+          setTimeout(() => div.remove(), 30000);
+        }
+      }
+
+      async function loadReactionStats() {
+        try {
+          const response = await fetch(\`/session/\${sessionId}/api/reactions?recentMinutes=5\`);
+          const data = await response.json();
+
+          if (data.success) {
+            document.getElementById('gotItCount').textContent = data.stats.gotIt;
+            document.getElementById('confusedCount').textContent = data.stats.confused;
+            document.getElementById('tooFastCount').textContent = data.stats.tooFast;
+            document.getElementById('tooSlowCount').textContent = data.stats.tooSlow;
+            document.getElementById('breakNeededCount').textContent = data.stats.breakNeeded;
+            document.getElementById('avgConfidence').textContent = data.stats.averageConfidence.toFixed(1) + '/5';
+          }
+        } catch (error) {
+          console.error('Failed to load reaction stats:', error);
+        }
+      }
+
+      async function executeAction(type, duration) {
+        try {
+          const body = { type };
+          if (duration) body.duration = duration;
+
+          const response = await fetch(\`/session/\${sessionId}/api/teacher-action\`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            alert('✅ Action broadcasted to all attendees!');
+          }
+        } catch (error) {
+          alert('Failed to execute action: ' + error.message);
+        }
       }
   
       async function loadFeedback() {
