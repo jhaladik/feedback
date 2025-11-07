@@ -9,15 +9,26 @@
     body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
     .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
     h1 { color: #333; margin-bottom: 10px; }
+    h2 { color: #333; margin-bottom: 15px; font-size: 22px; }
     .phase-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; text-transform: uppercase; margin-bottom: 20px; }
     .phase-pre { background: #e3f2fd; color: #1976d2; }
     .phase-live { background: #e8f5e9; color: #388e3c; }
     .phase-post { background: #fff3e0; color: #f57c00; }
+    .phase-description { background: #f9f9f9; padding: 15px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #667eea; }
+    .phase-description p { color: #666; font-size: 14px; line-height: 1.5; }
+
+    /* Common form styles */
     .form-group { margin: 20px 0; position: relative; }
     label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
-    textarea { width: 100%; padding: 14px; border: 2px solid #ddd; border-radius: 10px; font-family: inherit; font-size: 15px; resize: vertical; min-height: 120px; transition: all 0.3s; }
-    textarea:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
-    .ai-tools { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    textarea, input[type="text"] { width: 100%; padding: 14px; border: 2px solid #ddd; border-radius: 10px; font-family: inherit; font-size: 15px; resize: vertical; min-height: 100px; transition: all 0.3s; }
+    textarea:focus, input[type="text"]:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+
+    /* Question cards */
+    .question-card { background: #f9f9f9; padding: 20px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #667eea; }
+    .question-number { font-weight: 600; color: #667eea; font-size: 14px; margin-bottom: 8px; }
+    .question-text { color: #333; font-size: 16px; margin-bottom: 12px; font-weight: 500; }
+
+    /* Buttons */
     .btn { border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 500; transition: all 0.3s; }
     .btn-primary { background: #667eea; color: white; }
     .btn-primary:hover { background: #5568d3; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
@@ -26,6 +37,8 @@
     .btn-submit { background: #4CAF50; color: white; padding: 14px 32px; font-size: 16px; width: 100%; }
     .btn-submit:hover { background: #45a049; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4); }
     .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .ai-tools { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
     .ai-suggestions { background: #f9f9f9; border-radius: 10px; padding: 15px; margin-top: 15px; border-left: 4px solid #667eea; display: none; animation: slideDown 0.3s; }
     @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     .suggestion-item { background: white; padding: 12px; border-radius: 8px; margin: 8px 0; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; }
@@ -65,6 +78,7 @@
     .confidence-slider input[type="range"]::-webkit-slider-thumb { appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #667eea; cursor: pointer; }
     .confidence-slider input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #667eea; cursor: pointer; border: none; }
     .teacher-action-notification { background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%); color: white; padding: 16px; border-radius: 12px; margin: 20px 0; text-align: center; font-weight: 600; font-size: 16px; animation: slideDown 0.3s; box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3); }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -79,65 +93,86 @@
 
       <div id="statusMessage" class="status" style="display: none;"></div>
 
-      <div class="form-group">
-        <label for="feedback">
-          Your Feedback <span class="ai-badge">✨ AI-Powered</span>
-        </label>
-        <textarea id="feedback" placeholder="Share your thoughts, questions, or concerns..."></textarea>
-
-        <div class="ai-tools">
-          <button class="btn btn-secondary" onclick="helpMeWrite()" id="helpBtn">
-            ✨ Help me write this better
-          </button>
-          <button class="btn btn-secondary" onclick="previewSentiment()" id="previewBtn">
-            📊 Preview sentiment
-          </button>
+      <!-- PRE-COURSE PHASE -->
+      <div id="prePhaseContent" class="hidden">
+        <div class="phase-description">
+          <p>📝 Welcome! Please answer these questions to help us understand your background and expectations.</p>
         </div>
+        <div id="preCourseQuestions"></div>
+        <button class="btn btn-submit" id="submitPreBtn" onclick="submitPreCourseResponses()">Submit Responses</button>
+      </div>
 
-        <div id="aiSuggestions" class="ai-suggestions">
-          <strong>AI Suggestions:</strong>
-          <div id="suggestionsContainer"></div>
-        </div>
+      <!-- LIVE PHASE -->
+      <div id="livePhaseContent" class="hidden">
+        <div class="form-group">
+          <label for="feedback">
+            Your Feedback <span class="ai-badge">✨ AI-Powered</span>
+          </label>
+          <textarea id="feedback" placeholder="Share your thoughts, questions, or concerns..."></textarea>
 
-        <div id="sentimentPreview" class="sentiment-preview">
-          <strong id="sentimentText">Analyzing...</strong>
-          <div class="sentiment-bar">
-            <div class="sentiment-fill" id="sentimentBar"></div>
+          <div class="ai-tools">
+            <button class="btn btn-secondary" onclick="helpMeWrite()" id="helpBtn">
+              ✨ Help me write this better
+            </button>
+            <button class="btn btn-secondary" onclick="previewSentiment()" id="previewBtn">
+              📊 Preview sentiment
+            </button>
           </div>
-          <p id="sentimentTip" style="font-size: 13px; margin-top: 8px; opacity: 0.9;"></p>
+
+          <div id="aiSuggestions" class="ai-suggestions">
+            <strong>AI Suggestions:</strong>
+            <div id="suggestionsContainer"></div>
+          </div>
+
+          <div id="sentimentPreview" class="sentiment-preview">
+            <strong id="sentimentText">Analyzing...</strong>
+            <div class="sentiment-bar">
+              <div class="sentiment-fill" id="sentimentBar"></div>
+            </div>
+            <p id="sentimentTip" style="font-size: 13px; margin-top: 8px; opacity: 0.9;"></p>
+          </div>
+        </div>
+
+        <div class="toggle">
+          <label>
+            <input type="checkbox" id="privateToggle">
+            Make this feedback private (only teacher can see)
+          </label>
+        </div>
+
+        <button class="btn btn-submit" id="submitBtn" onclick="submitFeedback()">Submit Feedback</button>
+
+        <div class="quick-reactions">
+          <h3>⚡ Quick Reactions</h3>
+          <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Let the teacher know instantly how you're feeling</p>
+          <div class="reaction-buttons">
+            <button class="btn-reaction" onclick="sendReaction('got_it')" title="I got it!">👍 Got it</button>
+            <button class="btn-reaction" onclick="sendReaction('confused')" title="I'm confused">🤔 Confused</button>
+            <button class="btn-reaction" onclick="sendReaction('too_fast')" title="Too fast">⏸️ Too fast</button>
+            <button class="btn-reaction" onclick="sendReaction('too_slow')" title="Too slow">🐌 Too slow</button>
+            <button class="btn-reaction" onclick="sendReaction('break_needed')" title="Need a break">☕ Break</button>
+          </div>
+          <div class="confidence-slider">
+            <label for="confidence">My confidence level: <span id="confidenceValue">3</span>/5</label>
+            <input type="range" id="confidence" min="1" max="5" value="3" oninput="updateConfidenceValue(this.value)">
+          </div>
+        </div>
+
+        <div id="teacherActionNotification" class="teacher-action-notification" style="display: none;"></div>
+
+        <div class="feedback-list">
+          <h2>💬 Public Feedback</h2>
+          <div id="publicFeedback"></div>
         </div>
       </div>
 
-      <div class="toggle">
-        <label>
-          <input type="checkbox" id="privateToggle">
-          Make this feedback private (only teacher can see)
-        </label>
-      </div>
-
-      <button class="btn btn-submit" id="submitBtn" onclick="submitFeedback()">Submit Feedback</button>
-
-      <div class="quick-reactions">
-        <h3>⚡ Quick Reactions</h3>
-        <p style="font-size: 13px; color: #666; margin-bottom: 10px;">Let the teacher know instantly how you're feeling</p>
-        <div class="reaction-buttons">
-          <button class="btn-reaction" onclick="sendReaction('got_it')" title="I got it!">👍 Got it</button>
-          <button class="btn-reaction" onclick="sendReaction('confused')" title="I'm confused">🤔 Confused</button>
-          <button class="btn-reaction" onclick="sendReaction('too_fast')" title="Too fast">⏸️ Too fast</button>
-          <button class="btn-reaction" onclick="sendReaction('too_slow')" title="Too slow">🐌 Too slow</button>
-          <button class="btn-reaction" onclick="sendReaction('break_needed')" title="Need a break">☕ Break</button>
+      <!-- POST-COURSE PHASE -->
+      <div id="postPhaseContent" class="hidden">
+        <div class="phase-description">
+          <p>🎓 Thank you for attending! Please share your thoughts and learnings from the course.</p>
         </div>
-        <div class="confidence-slider">
-          <label for="confidence">My confidence level: <span id="confidenceValue">3</span>/5</label>
-          <input type="range" id="confidence" min="1" max="5" value="3" oninput="updateConfidenceValue(this.value)">
-        </div>
-      </div>
-
-      <div id="teacherActionNotification" class="teacher-action-notification" style="display: none;"></div>
-
-      <div class="feedback-list">
-        <h2>💬 Public Feedback</h2>
-        <div id="publicFeedback"></div>
+        <div id="postCourseQuestions"></div>
+        <button class="btn btn-submit" id="submitPostBtn" onclick="submitPostCourseResponses()">Submit Responses</button>
       </div>
     </div>
   </div>
@@ -146,6 +181,8 @@
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
     let ws = null;
+    let currentPhase = null;
+    let sessionData = null;
 
     async function init() {
       if (!sessionId) {
@@ -159,10 +196,10 @@
 
         if (!data.success) throw new Error('Failed to load session');
 
+        sessionData = data.session;
         document.getElementById('courseTitle').textContent = data.session.courseTitle;
-        updatePhaseBadge(data.session.phase);
+        updatePhase(data.session.phase);
 
-        loadFeedback();
         connectWebSocket();
 
         document.getElementById('loading').style.display = 'none';
@@ -172,24 +209,209 @@
       }
     }
 
+    function updatePhase(phase) {
+      currentPhase = phase;
+
+      // Update badge
+      const badge = document.getElementById('phaseBadge');
+      badge.textContent = phase;
+      badge.className = 'phase-badge phase-' + phase;
+
+      // Hide all phase content
+      document.getElementById('prePhaseContent').classList.add('hidden');
+      document.getElementById('livePhaseContent').classList.add('hidden');
+      document.getElementById('postPhaseContent').classList.add('hidden');
+
+      // Show appropriate phase content
+      if (phase === 'pre') {
+        document.getElementById('prePhaseContent').classList.remove('hidden');
+        loadPreCourseQuestions();
+      } else if (phase === 'live') {
+        document.getElementById('livePhaseContent').classList.remove('hidden');
+        loadFeedback();
+      } else if (phase === 'post') {
+        document.getElementById('postPhaseContent').classList.remove('hidden');
+        loadPostCourseQuestions();
+      }
+    }
+
+    async function loadPreCourseQuestions() {
+      if (!sessionData.preCourseQuestions || sessionData.preCourseQuestions.length === 0) {
+        document.getElementById('preCourseQuestions').innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">Questions are being generated...</p>';
+        return;
+      }
+
+      const container = document.getElementById('preCourseQuestions');
+      container.innerHTML = '';
+
+      sessionData.preCourseQuestions.forEach((question, index) => {
+        const card = document.createElement('div');
+        card.className = 'question-card';
+        card.innerHTML = `
+          <div class="question-number">Question ${index + 1}</div>
+          <div class="question-text">${escapeHtml(question)}</div>
+          <textarea id="preAnswer${index}" placeholder="Your answer..." rows="3"></textarea>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function loadPostCourseQuestions() {
+      // First check if questions exist in session data
+      if (!sessionData.postCourseQuestions || sessionData.postCourseQuestions.length === 0) {
+        document.getElementById('postCourseQuestions').innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">Questions are being generated...</p>';
+
+        // Poll for questions
+        const checkQuestions = setInterval(async () => {
+          const response = await fetch(`/session/${sessionId}/api/session`);
+          const data = await response.json();
+          if (data.success && data.session.postCourseQuestions && data.session.postCourseQuestions.length > 0) {
+            sessionData.postCourseQuestions = data.session.postCourseQuestions;
+            clearInterval(checkQuestions);
+            renderPostCourseQuestions();
+          }
+        }, 2000);
+
+        return;
+      }
+
+      renderPostCourseQuestions();
+    }
+
+    function renderPostCourseQuestions() {
+      const container = document.getElementById('postCourseQuestions');
+      container.innerHTML = '';
+
+      sessionData.postCourseQuestions.forEach((question, index) => {
+        const card = document.createElement('div');
+        card.className = 'question-card';
+        card.innerHTML = `
+          <div class="question-number">Question ${index + 1}</div>
+          <div class="question-text">${escapeHtml(question)}</div>
+          <textarea id="postAnswer${index}" placeholder="Your answer..." rows="3"></textarea>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function submitPreCourseResponses() {
+      if (!sessionData.preCourseQuestions) return;
+
+      const responses = [];
+      for (let i = 0; i < sessionData.preCourseQuestions.length; i++) {
+        const answer = document.getElementById(`preAnswer${i}`)?.value.trim();
+        if (answer) {
+          responses.push({
+            questionIndex: i,
+            answer: answer
+          });
+        }
+      }
+
+      if (responses.length === 0) {
+        showError('Please answer at least one question');
+        return;
+      }
+
+      try {
+        document.getElementById('submitPreBtn').disabled = true;
+
+        const response = await fetch(`/session/${sessionId}/api/pre-course-response`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ responses }),
+        });
+
+        const data = await response.json();
+        if (!data.success) throw new Error('Failed to submit');
+
+        showSuccess('✅ Responses submitted! Thank you.');
+
+        // Clear the form
+        for (let i = 0; i < sessionData.preCourseQuestions.length; i++) {
+          const input = document.getElementById(`preAnswer${i}`);
+          if (input) input.value = '';
+        }
+      } catch (error) {
+        showError('Failed to submit: ' + error.message);
+      } finally {
+        document.getElementById('submitPreBtn').disabled = false;
+      }
+    }
+
+    async function submitPostCourseResponses() {
+      if (!sessionData.postCourseQuestions) return;
+
+      const responses = [];
+      for (let i = 0; i < sessionData.postCourseQuestions.length; i++) {
+        const answer = document.getElementById(`postAnswer${i}`)?.value.trim();
+        if (answer) {
+          responses.push({
+            questionIndex: i,
+            answer: answer
+          });
+        }
+      }
+
+      if (responses.length === 0) {
+        showError('Please answer at least one question');
+        return;
+      }
+
+      try {
+        document.getElementById('submitPostBtn').disabled = true;
+
+        const response = await fetch(`/session/${sessionId}/api/post-course-response`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ responses }),
+        });
+
+        const data = await response.json();
+        if (!data.success) throw new Error('Failed to submit');
+
+        showSuccess('✅ Thank you for your feedback! Your responses have been submitted.');
+
+        // Clear the form
+        for (let i = 0; i < sessionData.postCourseQuestions.length; i++) {
+          const input = document.getElementById(`postAnswer${i}`);
+          if (input) input.value = '';
+        }
+      } catch (error) {
+        showError('Failed to submit: ' + error.message);
+      } finally {
+        document.getElementById('submitPostBtn').disabled = false;
+      }
+    }
+
     function connectWebSocket() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       ws = new WebSocket(`${protocol}//${window.location.host}/session/${sessionId}`);
 
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
+
         if (message.type === 'feedback_added') {
-          if (message.payload.visibility === 'public') {
+          if (message.payload.visibility === 'public' && currentPhase === 'live') {
             addFeedbackToUI(message.payload);
           }
         } else if (message.type === 'phase_changed') {
-          updatePhaseBadge(message.payload.newPhase);
+          updatePhase(message.payload.newPhase);
         } else if (message.type === 'teacher_action') {
           showTeacherAction(message.payload);
+        } else if (message.type === 'session_updated') {
+          // Update session data if questions were generated
+          if (message.payload.postCourseQuestions) {
+            sessionData.postCourseQuestions = message.payload.postCourseQuestions;
+            if (currentPhase === 'post') {
+              renderPostCourseQuestions();
+            }
+          }
         }
       };
     }
 
+    // LIVE PHASE FUNCTIONS
     async function sendReaction(type) {
       try {
         const confidence = document.getElementById('confidence').value;
@@ -424,12 +646,6 @@
         <div class="feedback-content">${escapeHtml(feedback.content)}</div>
       `;
       container.insertBefore(div, container.firstChild);
-    }
-
-    function updatePhaseBadge(phase) {
-      const badge = document.getElementById('phaseBadge');
-      badge.textContent = phase;
-      badge.className = 'phase-badge phase-' + phase;
     }
 
     function showError(message) {
